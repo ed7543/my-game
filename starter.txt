@@ -1,0 +1,164 @@
+import random, pygame, sys
+from pygame.locals import *
+import time
+
+# Initialize Pygame
+pygame.init()
+
+# Game settings
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption('Your Game Title')
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+
+# Load assets (replace with your actual image paths)
+player_image = pygame.image.load("cat.png")
+enemy1_image = pygame.image.load("enemycat.png")
+enemy2_image = pygame.image.load("enemycat.png")
+enemy3_image = pygame.image.load("enemycat.png")
+background1 = pygame.image.load("background.jpeg")
+background2 = pygame.image.load("background.jpeg")
+background3 = pygame.image.load("background.jpeg")
+door_image = pygame.image.load("closeddoor.png")
+
+
+# Define player and enemy classes
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = player_image
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (100, 100)
+        self.health = 10
+
+    def move(self, keys):
+        speed = 5
+        if keys[pygame.K_LEFT]:
+            self.rect.x -= speed
+        if keys[pygame.K_RIGHT]:
+            self.rect.x += speed
+        if keys[pygame.K_UP]:
+            self.rect.y -= speed
+        if keys[pygame.K_DOWN]:
+            self.rect.y += speed
+
+    def attack(self, enemies):
+        # Implement basic attack logic
+        for enemy in enemies:
+            if self.rect.colliderect(enemy.rect):
+                enemy.take_damage(1)
+
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, image, health, move_type=None):
+        super().__init__()
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.health = health
+        self.move_type = move_type  # For future movement logic
+        self.time_since_teleport = 0
+
+    def take_damage(self, damage):
+        self.health -= damage
+        if self.health <= 0:
+            self.kill()
+
+    def move(self):
+        if self.move_type == 'teleport':
+            # Teleport logic
+            if pygame.time.get_ticks() - self.time_since_teleport > 2000:  # Teleports every 2 seconds
+                self.rect.x = random.randint(100, SCREEN_WIDTH - 100)
+                self.rect.y = random.randint(100, SCREEN_HEIGHT - 100)
+                self.time_since_teleport = pygame.time.get_ticks()
+
+    def shoot(self, player):
+        # If moving, shoot at player
+        pass
+
+
+# Function to play intro video (or show intro images)
+#def play_intro():
+#    intro_images = ["intro.gif, intro2.gif"]  # Replace with actual paths
+#    for img in intro_images:
+#        screen.fill(WHITE)
+#        intro_img = pygame.image.load(img)
+#        screen.blit(intro_img, (0, 0))
+#        pygame.display.update()
+#        time.sleep(2)  # Show each image for 2 seconds
+
+
+# Main game function
+def main():
+    # Setup
+    player = Player()
+    all_sprites = pygame.sprite.Group(player)
+
+    # Enemies for room 1
+    enemies_room1 = pygame.sprite.Group(
+        Enemy(enemy1_image, 2),
+        Enemy(enemy2_image, 2),
+        Enemy(enemy3_image, 2)
+    )
+
+    # Initial room setup
+    current_room = background1
+    door_rect = door_image.get_rect()
+    door_rect.topleft = (SCREEN_WIDTH - 100, SCREEN_HEIGHT // 2)
+
+   # play_intro()  # Show the intro video
+
+    running = True
+    current_room_number = 1  # Start in room 1
+    while running:
+        screen.fill(WHITE)
+        screen.blit(current_room, (0, 0))  # Draw current background
+        all_sprites.draw(screen)
+        enemies_room1.draw(screen)
+
+        # Check if all enemies are defeated and open door
+        if not enemies_room1:
+            screen.blit(door_image, door_rect)
+            pygame.display.update()
+
+        # Event handling
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        # Player movement
+        keys = pygame.key.get_pressed()
+        player.move(keys)
+
+        # Player attack with Enter key
+        if pygame.key.get_pressed()[pygame.K_RETURN]:
+            player.attack(enemies_room1)
+
+        # Room transition (when door is clicked)
+        if pygame.mouse.get_pressed()[0] and door_rect.collidepoint(pygame.mouse.get_pos()):
+            current_room_number += 1
+            if current_room_number == 2:
+                current_room = background2
+                enemies_room1 = pygame.sprite.Group(Enemy(enemy2_image, 3, 'teleport'))  # Room 2 enemies
+            elif current_room_number == 3:
+                current_room = background3
+                enemies_room1 = pygame.sprite.Group(Enemy(enemy3_image, 10))  # Room 3 enemy
+                # Add shooting mechanic for Room 3
+
+        # Update enemies
+        for enemy in enemies_room1:
+            if enemy.move_type == 'teleport':
+                enemy.move()
+            enemy.shoot(player)  # Implement shooting logic
+
+        pygame.display.update()
+        pygame.time.Clock().tick(60)  # Limit the frame rate to 60 FPS
+
+    pygame.quit()
+
+
+# Run the game
+main()
